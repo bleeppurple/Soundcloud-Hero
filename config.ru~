@@ -20,6 +20,7 @@ module Sinatra
       authenticate!
       @sc= env['warden'].user
       @sc.acc_token
+      puts "test"
       @soundcloud = Soundcloud.register({:access_token => @sc.acc_token})
     end
     
