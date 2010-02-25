@@ -1,0 +1,15 @@
+
+
+soundcloud:
+  default_strategies: ":soundcloud_oauth"
+  failure_app: "ErrorApp"
+  oauth:
+    consumer_key: "4caw0OOOqdhi3Dhtq7dzg"
+    consumer_secret: "lP8MmH9rrVDXXWkG8wvcOjsqSAOonPKRaSVPo80g"
+    options: 
+      site: 'http://api.soundcloud.com'
+      request_token_path: "/oauth/request_token"
+      access_token_path:  "/oauth/access_token"
+      authorize_path: "/oauth/authorize"
+      scheme: ":query_string"   
+

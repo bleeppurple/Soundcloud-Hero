@@ -7,6 +7,12 @@ require 'ruby-debug'
 require "warden"
 require "warden_oauth"
 
+  # importing yaml for config settings
+  
+  CONFIG = YAML::load(File.read('config.yaml'))
+  
+  
+
   # example of extentions to helpers for sinatra but could just as easily be any other rack based framework...
 
 module Sinatra
@@ -18,9 +24,17 @@ module Sinatra
     
     def sc_hero!
       authenticate!
-      @sc= env['warden'].user
-      @sc.acc_token
-      @soundcloud = Soundcloud.register({:access_token => @sc.acc_token})
+      @SCuser= env['warden'].user
+      
+      # generate Oauth token's again
+      @consumer = OAuth::Consumer.new(
+        CONFIG['soundcloud']['oauth']['consumer_key'], 
+        CONFIG['soundcloud']['oauth']['consumer_secret'],
+        CONFIG['soundcloud']['oauth']['options'] )
+       @access_token = OAuth::AccessToken.new(@consumer, @SCuser.token, @SCuser.secret)
+       
+      # register soundcloud
+      @soundcloud = Soundcloud.register({:access_token => @access_token})
     end
     
   end # end module Helpers
@@ -34,23 +48,17 @@ class SCUser
   attr_accessor :secret
   attr_accessor :acc_token
   
-  def initialize(token, secret, object)
+  def initialize(token, secret)
     @token = token
-    @secret = secret
-    @acc_token = object    
+    @secret = secret    
   end
   
 end # end class SCUser
 
   # NOTE: Normally here you use AR/DM to fetch up the user given an access_token and an access_secret
-  #       the full access_token object has been included (3rd arg) as a hack untill I get more familar with warden
-  #       this mucks up the warden user auth a bit and it may not hold between sessions
-  #       It will work between sessions if the user object only has a access token and access secret 
-  #       --- not an access object
-  #       ie.  SCUser.new(access_token.token, access_token.secret) works 
 
 Warden::OAuth.access_token_user_finder(:soundcloud) do |access_token|
-   SCUser.new(access_token.token, access_token.secret, access_token)
+   SCUser.new(access_token.token, access_token.secret)
 end
 
 class SinApp < Sinatra::Base
@@ -58,13 +66,15 @@ class SinApp < Sinatra::Base
 # to start the Oauth process point the user to http://HOST/?warden_oauth_provider=soundcloud'
 # E.G. http://localhost:4567/?warden_oauth_provider=soundcloud'
 
-  get '/' do  
+  get '/' do 
+ 
   sc_hero!
+  pp env['warden']
   puts "authenticated"
   puts "trying to call soundcloud"
   @me = @soundcloud.User.find_me
   puts "made call with soundcloud api"
-  #do anything you want!
+  puts "anything you want!"
   end
 
 end # end class Sinapp
@@ -87,16 +97,11 @@ app = Rack::Builder.new do
   use Warden::Manager do |config|
     config.oauth(:soundcloud) do |soundcloud|
       # 
-      soundcloud.consumer_key "YOUR KEY"
-      soundcloud.consumer_secret "YOUR SECRET"
-      soundcloud.options :site => 'http://api.soundcloud.com',
-        :request_token_path => "/oauth/request_token",
-        :access_token_path => "/oauth/access_token",
-        :authorize_path => "/oauth/authorize",
-        :scheme => :query_string
-      #debugger   
+      soundcloud.consumer_key CONFIG['soundcloud']['oauth']['consumer_key']
+      soundcloud.consumer_secret CONFIG['soundcloud']['oauth']['consumer_secret']
+      soundcloud.options CONFIG['soundcloud']['oauth']['options']   
     end
-    config.default_strategies :soundcloud_oauth
+    config.default_strategies CONFIG['soundcloud']['default_strategies']
     config.failure_app = ErrorApp
 
   end
